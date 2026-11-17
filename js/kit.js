@@ -46,31 +46,46 @@ function stagePt(ev) { var r = $('#stage').getBoundingClientRect(); return { x: 
 function showLayer(html) { var l = $('#layer'); l.innerHTML = '<div class="box">' + html + '</div>'; l.hidden = false; var b = $('button', l); if (b) b.focus(); }
 function hideLayer() { $('#layer').hidden = true; $('#layer').innerHTML = ''; }
 function setFoot(o) {
-  var b = $('#b-back'), m = $('#b-main'); b.hidden = !!o.noBack; m.hidden = !!o.noMain;
+  var b = $('#b-back'), m = $('#b-main'), rs = $('#b-reset'); b.hidden = !!o.noBack || S.step === 0; m.hidden = !!o.noMain;
+  rs.hidden = !o.reset; T.reset = o.reset || null;
   m.className = 'btn ' + (o.cls || 'pri') + (o.en ? ' ready' : ''); m.textContent = o.main || 'Next'; m.disabled = !o.en; $('#st').textContent = o.st || '';
   T.main = o.go; T.back = o.back || function () { go(S.step - 1); };
   var tr = $('#tries'); if (o.item && !it(o.item).done) { var l = left(o.item), h = ''; for (var i = 0; i < MAXA; i++) h += '<span class="' + (i < l ? 'f' : 'e' + (T.lost === i ? ' lost' : '')) + '">' + (i < l ? '\u2605' : '\u2606') + '</span>'; tr.innerHTML = h; tr.setAttribute('aria-label', l + ' tries left'); T.lost = null; } else tr.innerHTML = '';
 }
-function xpNow() { var n = C.items.filter(function (d) { return S.items[d.id] && S.items[d.id].done; }).length, per = Math.round(1000 / C.items.length); return n === C.items.length ? 1000 : n * per; }
+// XP = points earned on correct answers (100% / 70% / 10% by try); misses = every wrong try. User asked for live XP, so DP-806 is relaxed here.
+function earned(d) { var s = S.items[d.id]; return s && s.ok ? Math.round(d.w * 10 * s.frac) : 0; }
+function xpNow() { return C.items.reduce(function (t, d) { return t + earned(d); }, 0); }
+function tally() { var ok = 0, no = 0; C.items.forEach(function (d) { var s = S.items[d.id]; if (!s) return; if (s.ok) ok++; no += s.a - (s.ok ? 1 : 0); }); return { ok: ok, no: no }; }
 function xpView(animate) {
-  var xp = xpNow(), lvl = 1 + Math.floor(xp / 250), f = lvl > 4 ? 1 : (xp % 250) / 250; // XP counts finished steps only, never correctness (DP-806)
-  $('#lv').textContent = Math.min(lvl, 5); $('#xtxt').textContent = xp + ' XP'; $('#xfill').style.transform = 'scaleX(' + f + ')';
+  var t = tally(); $('#xtxt').textContent = xpNow() + ' XP'; $('#nok').textContent = '✓ ' + t.ok; $('#nno').textContent = '✗ ' + t.no;
   if (animate) { var x = $('#xp'); x.classList.remove('pop'); void x.offsetWidth; x.classList.add('pop'); }
-  return lvl;
 }
+function journey() { return SC.filter(function (x) { return x.id !== 'review' && x.id !== 'submitted' && x.id !== 'start'; }); }
 function header() {
-  var s = cur(), scored = SC.filter(function (x) { return x.items; }), n = scored.length, idx = scored.indexOf(s);
-  $('#plabel').textContent = idx >= 0 ? (idx + 1) + ' / ' + n : s.name;
-  var bar = ''; scored.forEach(function (sc, i) { var dn = sc.items.every(function (k) { return S.items[k] && S.items[k].done; }); bar += '<i class="' + (i === idx ? 'o' : dn ? 'd' : '') + '" title="' + esc(sc.name) + '">' + (dn ? '✓' : (sc.icon || (i + 1))) + '</i>'; });
-  $('#pbar').innerHTML = bar; var sb = $('#b-snd'); sb.className = 'hbtn icon-btn ' + (S.sound ? 'sound-on' : 'sound-off'); $('.hbtn-label', sb).textContent = S.sound ? 'Sound' : 'Muted'; $('#banner').hidden = !LMS.banner; xpView(false);
+  var J = journey(), idx = J.indexOf(cur()), fin = S.submitted || cur().id === 'submitted', bar = '';
+  J.forEach(function (sc, i) { var dn = fin || i < idx || (sc.items && sc.items.every(function (k) { return S.items[k] && S.items[k].done; }) && i !== idx); bar += (i ? '<b class="' + (dn || i <= idx ? 'd' : '') + '"></b>' : '') + '<i class="' + (i === idx ? 'o' : dn ? 'd' : '') + '" title="' + esc(sc.name) + '">' + (dn ? '✓' : (i + 1)) + '</i>'; });
+  bar += '<b class="' + (fin ? 'd' : '') + '"></b><i class="end ' + (fin ? 'd' : '') + '" title="Result">★</i>';
+  $('#pbar').innerHTML = bar; $('#pbar').setAttribute('aria-label', 'Step ' + Math.max(1, idx + 1) + ' of ' + J.length);
+  var sb = $('#b-snd'); sb.className = 'hbtn icon-btn ' + (S.sound ? 'sound-on' : 'sound-off'); $('.hbtn-label', sb).textContent = S.sound ? 'Sound' : 'Muted'; xpView(false);
 }
 function render() { K.solve = null; cueStop(); (T.off || []).forEach(function (o) { o[0].removeEventListener(o[1], o[2]); }); T.off = []; var old = $('#content'), el = old.cloneNode(false); old.parentNode.replaceChild(el, old); header(); cur().render(el, K); }
-function help() { var s = cur(); showLayer('<h2>Help</h2><p>' + esc(s.help || 'Read the message, do the task, then press the big button.') + '</p><p>Drag with a finger or mouse, or tap a card and then tap its place. No points are shown until the end.</p><p style="text-align:right;margin:20px 0 0"><button class="btn pri" data-close>Got it</button></p>'); }
+// Help shows, it does not tell: replay the hand cue for this screen, or point at the main button.
+function help() { var sp = T.cue && (T.cue.drag || T.cue.seq) ? T.cue : { ring: '#b-main', seq: ['#b-main'] }; cueStop(); T.cue = sp; ringOn(); handShow(); }
 
-/* ---------- conversation block ---------- */
+/* ---------- character: a friendly alien drawn in SVG (offline, no image files) ---------- */
+function alien(a) {
+  a = a || {}; var b = a.body || '#9FE3C9', s = a.spot || '#7FD3B4', t = a.tip || '#FF9F80', k = '#2B2A4C';
+  return '<svg class="alien" viewBox="0 0 120 120" aria-hidden="true"><path d="M44 34 L34 12" stroke="' + s + '" stroke-width="5" stroke-linecap="round"/><path d="M76 34 L86 12" stroke="' + s + '" stroke-width="5" stroke-linecap="round"/><circle cx="34" cy="11" r="7" fill="' + t + '"/><circle cx="86" cy="11" r="7" fill="' + t + '"/>' +
+    '<ellipse cx="60" cy="70" rx="42" ry="40" fill="' + b + '"/><circle cx="30" cy="58" r="5" fill="' + s + '"/><circle cx="92" cy="86" r="6" fill="' + s + '"/><circle cx="86" cy="54" r="3.5" fill="' + s + '"/>' +
+    '<circle cx="46" cy="64" r="13" fill="#fff"/><circle cx="76" cy="64" r="13" fill="#fff"/><circle cx="48" cy="66" r="6.5" fill="' + k + '"/><circle cx="78" cy="66" r="6.5" fill="' + k + '"/><circle cx="50.5" cy="63" r="2.2" fill="#fff"/><circle cx="80.5" cy="63" r="2.2" fill="#fff"/>' +
+    '<circle cx="36" cy="82" r="5.5" fill="#FFB3C1" opacity=".75"/><circle cx="86" cy="82" r="5.5" fill="#FFB3C1" opacity=".75"/><path d="M50 86 Q61 96 72 86" stroke="' + k + '" stroke-width="3.5" fill="none" stroke-linecap="round"/></svg>';
+}
+function face(who) { return who.alien ? alien(who.alien) : who.e; }
+
+/* ---------- conversation block: {q:'...'} lines are the question (largest type), {me:'...'} is the learner ---------- */
 function talk(who, lines, extra, cls) {
-  return '<div class="talk ' + (cls || '') + '"><div class="who"><div class="avatar" aria-hidden="true">' + who.e + '</div><div class="name">' + esc(who.n) + '</div><div class="role">' + esc(who.r || '') + '</div></div><div class="bubbles">' +
-    lines.map(function (l) { return typeof l === 'string' ? '<div class="bub">' + l + '</div>' : '<div class="bub me">' + l.me + '</div>'; }).join('') + (extra || '') + '</div></div>';
+  return '<div class="talk ' + (cls || '') + '"><div class="who"><div class="avatar" aria-hidden="true">' + face(who) + '</div><div class="name">' + esc(who.n) + '</div><div class="role">' + esc(who.r || '') + '</div></div><div class="bubbles">' +
+    lines.map(function (l) { return typeof l === 'string' ? '<div class="bub">' + l + '</div>' : l.q ? '<p class="q">' + l.q + '</p>' : '<div class="bub me">' + l.me + '</div>'; }).join('') + (extra || '') + '</div></div>';
 }
 
 /* ---------- numeric keypad (no typing in scored steps) ---------- */
@@ -119,22 +134,27 @@ function dnd(root, onDrop) {
 function coach(kind, title, text) { return '<div class="coach ' + (kind || '') + '"><b>' + esc(title) + '</b>' + text + '</div>'; }
 
 /* ---------- final scenes ---------- */
-function reviewScene() { return { id: 'review', name: 'Review', render: function (el) {
-  el.innerHTML = talk(C.hero, [C.reviewLine || 'Great work. Ready to send your report?']) + '<div style="height:20px"></div>' + coach('good', 'Before you submit', 'Your answers are saved. Press Submit to build your report. You can only submit once.');
-  setFoot({ main: 'Submit', cls: 'go', en: allDone(), st: allDone() ? 'Everything is complete' : 'Finish every step first', go: doSubmit });
+// No separate review/submit screen: leaving the last step saves the result and opens the result slide.
+function reviewScene() { return { id: 'review', name: 'Finish', render: function (el) {
+  if (allDone()) { el.innerHTML = ''; setFoot({ noMain: true, noBack: true }); doSubmit(); return; }
+  var miss = SC.filter(function (x) { return x.items && x.items.some(function (k) { return !(S.items[k] && S.items[k].done); }); })[0];
+  el.innerHTML = say('One step is still waiting for you.'); setFoot({ main: 'Go there', en: true, go: function () { go(SC.indexOf(miss)); } });
 } }; }
-function submittedScene() { return { id: 'submitted', name: 'Report', render: function (el) {
-  var f = S.final || { points: 0, rank: 0, first: 0, at: new Date().toISOString() }, pg = S.rp || 0, h = '';
-  if (pg === 0) h = '<div class="row" style="align-items:stretch"><div class="card" style="width:700px;border-color:' + C.color + '"><div class="eyebrow">Project score</div><div style="font-size:150px;font-weight:900;color:' + C.color + ';white-space:nowrap">' + f.points + ' <span style="font-size:60px">/ 1000</span></div><div class="eyebrow" style="margin-top:8px">Rank Points</div><div style="font-size:72px;font-weight:900;color:' + C.color + '">' + f.rank + ' / 100</div><p class="sm">Correct on the first try: <b>' + f.first + ' of ' + C.items.length + '</b><br>' + esc(new Date(f.at).toDateString()) + '</p></div><div class="card grow">' + (CFG.summaryHtml ? CFG.summaryHtml(S, ensureData()) : '') + '</div></div><p class="sm" style="margin-top:12px">' + esc(C.aiNote) + '</p>';
-  else if (pg === 1) h = CFG.dataHtml(S, ensureData());
-  else h = '<p class="ask">Your journey: each choice shaped what came next.</p>' + CFG.chain(S, ensureData()).map(function (c, i) { return '<div class="card" style="margin-bottom:14px;padding:14px 28px;border-left:20px solid ' + C.color + '"><div style="font-size:36px;font-weight:900">' + (i + 1) + '. ' + esc(c.choice) + '</div><div style="font-size:34px;color:var(--muted)">' + esc(c.consequence) + '</div></div>'; }).join('');
-  el.innerHTML = h; var last = pg === 2, canDl = typeof URL !== 'undefined' && !!URL.createObjectURL;
-  setFoot({ noBack: pg === 0, back: function () { S.rp = Math.max(0, pg - 1); save(); render(); }, main: last ? (canDl ? 'Download PDF' : 'Finish') : 'Next page', cls: last ? 'gold' : 'pri', en: true, st: 'Page ' + (pg + 1) + ' of 3', go: function () { if (!last) { S.rp = pg + 1; save(); render(); } else if (canDl) downloadPDF(); else LMS.exit(); } });
+function submittedScene() { return { id: 'submitted', name: 'Result', render: function (el) {
+  var f = S.final || { points: 0, rank: 0, first: 0, at: new Date().toISOString() }, pg = S.rp || 0, t = tally(), h = '';
+  if (pg === 0) { var n = f.points >= 800 ? 3 : f.points >= 500 ? 2 : 1;
+    h = '<div class="res"><div class="card score"><div class="eyebrow">Mission complete</div><div class="stars3">' + '★'.repeat(n) + '<span class="e">' + '★'.repeat(3 - n) + '</span></div><div class="big">' + f.points + '<small> / 1000</small></div>' +
+      '<div class="tiles"><div class="tile"><b>' + xpNow() + '</b>XP</div><div class="tile"><b>' + t.ok + '</b>Correct</div><div class="tile"><b>' + t.no + '</b>Misses</div><div class="tile"><b>' + f.rank + '</b>Rank Points</div></div></div>' +
+      '<div class="card grow" style="display:flex;flex-direction:column;justify-content:center">' + (CFG.summaryHtml ? CFG.summaryHtml(S, ensureData()) : '') + '</div></div>'; }
+  else h = CFG.dataHtml(S, ensureData());
+  el.innerHTML = h; var last = pg === 1, canDl = typeof URL !== 'undefined' && !!URL.createObjectURL;
+  setFoot({ noBack: pg === 0, back: function () { S.rp = 0; save(); render(); }, main: last ? (canDl ? 'Download PDF' : 'Finish') : 'See my work', cls: last ? 'gold' : 'pri', en: true, go: function () { if (!last) { S.rp = 1; save(); render(); } else if (canDl) downloadPDF(); else LMS.exit(); } });
+  if (pg === 0 && S.justDone) { S.justDone = false; burst(960, 300); }
 } }; }
 function doSubmit() {
   if (T.busy) return; T.busy = true; var sc = score(); showLayer('<h2>Sending your report…</h2><p>Please wait.</p>');
   var res = buildResult(); S.final = { points: sc.points, rank: Math.floor(sc.points / 10 + 0.5), first: firstTry(), at: res.submittedAt };
-  LMS.submit(res).then(function () { T.busy = false; S.submitted = true; SFX.done(); hideLayer(); S.rp = 0; go(SC.length - 1); }).catch(function () {
+  LMS.submit(res).then(function () { T.busy = false; S.submitted = true; S.justDone = true; SFX.done(); hideLayer(); S.rp = 0; go(SC.length - 1); }).catch(function () {
     T.busy = false; showLayer('<h2>Couldn’t save</h2><p>Check your connection and try again. Your answers are kept.</p><p style="text-align:right;margin:24px 0 0"><button class="btn pri" id="tr">Try again</button></p>'); $('#tr').addEventListener('click', function () { hideLayer(); doSubmit(); });
   });
 }
@@ -180,13 +200,13 @@ function burst(x, y) {
 function floatText(txt, x, y, cls) { var st = $('#stage'), e = document.createElement('div'); e.className = cls || 'xpf fx'; e.style.left = x + 'px'; e.style.top = y + 'px'; e.textContent = txt; st.appendChild(e); setTimeout(function () { gone(e); }, 2100); }
 function fxAfter(id, s) {
   var main = $('#b-main'), p = main ? stageXY(main) : { x: 960, y: 1020 };
+  var xb = stageXY($('#xp'));
   if (s.done) {
-    cueStop(); var per = Math.round(1000 / C.items.length), lvBefore = 1 + Math.floor((xpNow() - per) / 250), lvl = xpView(true);
-    if (s.ok) { burst(p.x, p.y - 40); SFX.ok(); }
-    floatText('+' + per + ' XP', 1460, 150);
-    if (lvl > lvBefore && lvl <= 5) floatText('Level ' + lvl + '!', 960, 400, 'lvup fx');
+    cueStop(); xpView(true);
+    if (s.ok) { burst(p.x, p.y - 40); SFX.ok(); floatText('+' + earned(itDef(id)) + ' XP', xb.x - 60, xb.y + 40); }
     header();
   } else {
+    xpView(true);
     var c = $('#content'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake'); setTimeout(function () { c.classList.remove('shake'); }, 500);
     var av = $('.av, .avatar', c); if (av) { av.classList.remove('wob'); void av.offsetWidth; av.classList.add('wob'); }
     T.lost = left(id); // index of the star that just vanished
@@ -222,18 +242,21 @@ function handShow() {
 
 
 /* ---------- shared scene helpers ---------- */
-function say(txt) { return '<div class="say"><div class="av" aria-hidden="true">' + C.hero.e + '</div><div class="bub" id="fb">' + txt + '</div></div>'; }
+function say(txt) { return '<div class="say"><div class="av" aria-hidden="true">' + face(C.hero) + '</div><div class="bub" id="fb">' + txt + '</div></div>'; }
 function fbBox(html) { var b = $('#fb'); if (b) b.innerHTML = html; }
-function footFor(id, ready, check, st) {
-  if (done1(id)) setFoot({ main: 'Next', en: true, go: function () { go(S.step + 1); }, st: 'Done. Press Next.' });
-  else setFoot({ main: 'Check', cls: 'go', en: ready, go: check, item: id, st: ready ? '' : (st || '') });
+// When the screen is ready to move on, the hand points at the main button after a pause (no written "press Next").
+function nextCue() { cue({ ring: '#b-main', seq: ['#b-main'], delay: 2500 }); }
+function footFor(id, ready, check, st, reset) {
+  if (done1(id)) { setFoot({ main: 'Next', en: true, go: function () { go(S.step + 1); } }); nextCue(); }
+  else { setFoot({ main: 'Check', cls: 'go', en: ready, go: check, item: id, reset: reset }); if (ready) nextCue(); }
 }
 function done1(id) { return !!(S.items[id] && S.items[id].done); }
+var OOPS = ['Hmm, not yet. Try again!', 'Almost! Have another go.', 'Oops! Look again.'];
 function settle(id, ok, resp, good, bad, reveal, foot) {
   var s = attempt(id, ok, resp), box = $('#fb');
-  if (ok) { SFX.ok(); box.innerHTML = '<b>' + (s.a === 1 ? 'Yes! ' : 'There it is. ') + '</b>' + good; }
-  else if (s.rev) { SFX.bad(); box.innerHTML = '<b>Let me show you.</b> ' + reveal; }
-  else { SFX.bad(); box.innerHTML = '<b>Hmm, not quite.</b> ' + bad + '<br>' + starLine(id); }
+  if (ok) { SFX.ok(); box.innerHTML = '<b>' + (s.a === 1 ? 'Yes! ' : 'You got it! ') + '</b>' + good; }
+  else if (s.rev) { SFX.bad(); box.innerHTML = '<b>Here it is.</b> ' + reveal; }
+  else { SFX.bad(); box.innerHTML = '<b>' + OOPS[(s.a - 1) % OOPS.length] + '</b>'; }
   if (foot) foot(); return s;
 }
 function svgPt(svg, ev) { var p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY; var m = svg.getScreenCTM(); return m ? p.matrixTransform(m.inverse()) : { x: 0, y: 0 }; }
@@ -244,10 +267,10 @@ function money(n) { return '₹' + String(Math.round(n)).replace(/\B(?=(\d{3})+(
 function pickScene(c) {
   return { id: c.id, name: c.name, help: c.help || 'Tap one card, then press Next.', render: function (el) {
     var D = ensureData(), o = c.opts(D);
-    el.innerHTML = talk(c.who || C.hero, c.lines(D)) + '<div class="row" style="margin:12px 0 0 268px">' + o.map(function (p) { return '<button class="pick shelf' + (S.x[c.key] === p.id ? ' sel' : '') + '" data-p="' + p.id + '"' + (p.col ? ' style="border-top:14px solid ' + p.col + ';font-size:36px"' : ' style="font-size:36px"') + '><span style="font-size:96px">' + p.e + '</span>' + p.t + (p.sub ? '<small style="font-size:28px;color:var(--muted)">' + p.sub + '</small>' : '') + '</button>'; }).join('') + '</div>';
+    el.innerHTML = talk(c.who || C.hero, c.lines(D)) + '<div class="row" style="margin:56px 0 0 206px;gap:48px">' + o.map(function (p) { return '<button class="pick shelf' + (S.x[c.key] === p.id ? ' sel' : '') + '" data-p="' + p.id + '"' + (p.col ? ' style="border-top:14px solid ' + p.col + ';font-size:36px"' : ' style="font-size:36px"') + '><span style="font-size:96px">' + p.e + '</span>' + p.t + (p.sub ? '<small style="font-size:28px;color:var(--muted)">' + p.sub + '</small>' : '') + '</button>'; }).join('') + '</div>';
     function f() { setFoot({ main: 'Next', en: !!S.x[c.key], go: function () { go(S.step + 1); } }); }
-    el.addEventListener('click', function (ev) { var b = ev.target.closest('.pick'); if (!b) return; S.x[c.key] = b.dataset.p; save(); SFX.tap(); $$('.pick', el).forEach(function (x) { x.classList.toggle('sel', x === b); }); f(); });
-    f(); K.solve = function () { var b = $('.pick'); if (b) b.click(); }; cue({ ring: '.pick', seq: ['.pick:nth-child(1)', '.pick:nth-child(2)', '.pick:nth-child(3)'] });
+    el.addEventListener('click', function (ev) { var b = ev.target.closest('.pick'); if (!b) return; S.x[c.key] = b.dataset.p; save(); SFX.tap(); $$('.pick', el).forEach(function (x) { x.classList.toggle('sel', x === b); }); f(); nextCue(); });
+    f(); if (S.x[c.key]) { nextCue(); K.solve = function () { var b = $('.pick'); if (b) b.click(); }; return; } K.solve = function () { var b = $('.pick'); if (b) b.click(); }; cue({ ring: '.pick', seq: ['.pick:nth-child(1)', '.pick:nth-child(2)', '.pick:nth-child(3)'] });
   } };
 }
 function numScene(c) {
@@ -258,7 +281,7 @@ function numScene(c) {
     function lock() { var fs = $$('.field', host); F.forEach(function (f, i) { fs[i].textContent = fmt(f.ans, i); fs[i].classList.add('ok'); }); $$('.key', host).forEach(function (k) { k.disabled = true; }); }
     function check() {
       var v = kp.vals().map(parseFloat), res = F.map(function (f, i) { return Math.abs(v[i] - f.ans) <= (f.tol || 0) + 1e-9; }), ok = res.every(Boolean); res.forEach(function (r, i) { kp.mark(i, r ? 'ok' : 'no'); });
-      settle(c.id, ok, v, c.good(D), c.bad ? c.bad(D, res) : (res.some(Boolean) && !ok ? 'Some are right (green). Fix the red ones.' : 'Not yet. Read the hint in the help and try again.'), c.reveal(D), function () { footFor(c.id, true, check); if (done1(c.id)) lock(); });
+      settle(c.id, ok, v, c.good(D), c.bad ? c.bad(D, res) : (res.some(Boolean) && !ok ? 'Some are right (green). Fix the red ones.' : 'Not yet. Read the hint in the help and try again.'), c.reveal(D), function () { footFor(c.id, true, check); if (done1(c.id)) lock(); else cue({ item: c.id, ring: '.field.no', seq: ['.field.no'], delay: 400 }); });
     }
     K.solve = function () { F.forEach(function (f, i) { kp.set(i, f.ans); }); check(); };
     if (done) { lock(); fbBox('<b>Done.</b> ' + c.reveal(D)); }
@@ -267,25 +290,29 @@ function numScene(c) {
 }
 function slotScene(c) {
   return { id: c.id, icon: c.icon, name: c.name, items: [c.id], help: c.help, render: function (el) {
-    var D = ensureData(), done = done1(c.id), key = 'sl_' + c.id, asg = S.x[key] = S.x[key] || {}, truth = c.truth(D), chips = c.chips(D), slots = c.slots(D);
+    var D = ensureData(), done = done1(c.id), key = 'sl_' + c.id, bad = {}, asg = S.x[key] = S.x[key] || {}, truth = c.truth(D), chips = c.chips(D), slots = c.slots(D);
     if (done) S.x[key] = asg = Object.assign({}, truth);
     var shuf = shuffle(chips, rng(S.learnerId + c.id));
     el.innerHTML = say(c.say(D)) + (c.top ? c.top(D) : '') + '<div class="row" id="host" style="margin-top:14px;align-items:flex-start"><div class="col" style="width:' + (c.sw || 1000) + 'px;' + (c.sc ? 'display:grid;grid-template-columns:repeat(' + c.sc + ',1fr);gap:14px;align-content:start' : '') + '" id="slots"></div><div class="col grow" style="' + (c.pc ? 'display:grid;grid-template-columns:repeat(' + c.pc + ',1fr);gap:10px;align-content:start' : '') + '" id="pool"></div></div>';
     function chip(ch) { return '<button class="chip' + (done ? ' goodc' : '') + '" tabindex="0" data-id="' + ch.id + '" style="white-space:normal;min-height:' + (c.ch || 104) + 'px;font-size:' + (c.fs || 34) + 'px"' + (done ? ' disabled' : '') + '>' + ch.t + '</button>'; }
     function paint() {
       var used = {}; Object.keys(asg).forEach(function (k) { used[asg[k]] = 1; });
-      $('#slots').innerHTML = slots.map(function (s) { var ch = chips.filter(function (x) { return x.id === asg[s.id]; })[0]; return '<div class="slot" data-slot="' + s.id + '" tabindex="0" style="min-height:' + (s.h || c.sh || 140) + 'px"><b style="font-size:' + (c.ls || 34) + 'px;' + (c.lw ? 'width:' + c.lw + 'px;' : '') + 'color:var(--pri)">' + s.label + '</b>' + (ch ? chip(ch) : '') + '</div>'; }).join('');
+      $('#slots').innerHTML = slots.map(function (s) { var ch = chips.filter(function (x) { return x.id === asg[s.id]; })[0]; return '<div class="slot' + (ch ? '' : ' empty') + (bad[s.id] ? ' bad' : '') + '" data-slot="' + s.id + '" tabindex="0" style="min-height:' + (s.h || c.sh || 140) + 'px"><b style="font-size:' + (c.ls || 34) + 'px;' + (c.lw ? 'width:' + c.lw + 'px;' : '') + 'color:var(--pri)">' + s.label + '</b>' + (ch ? chip(ch) : '') + '</div>'; }).join('');
       $('#pool').innerHTML = '<div class="eyebrow" style="' + (c.pc ? 'grid-column:1/-1' : '') + '">' + (c.poolLabel || 'Pieces') + '</div>' + shuf.filter(function (x) { return !used[x.id]; }).map(chip).join('');
-      var n = Object.keys(asg).length; if (!done1(c.id)) footFor(c.id, n === slots.length, check, n + ' of ' + slots.length + ' placed');
+      var n = Object.keys(asg).length; if (!done1(c.id)) footFor(c.id, n === slots.length, check, '', n ? retry : null);
     }
+    function retry() { Object.keys(asg).forEach(function (k) { delete asg[k]; }); bad = {}; save(); paint(); cue({ item: c.id, ring: '#pool .chip', drag: { from: '#pool .chip', to: '.slot.empty' }, delay: 600 }); }
     function check() {
       var wrong = c.verify ? c.verify(asg, D, slots) : slots.filter(function (s) { return asg[s.id] !== truth[s.id]; }), ok = wrong.length === 0;
-      var s = settle(c.id, ok, JSON.stringify(asg), c.good(D), c.bad ? c.bad(D, wrong) : wrong.length + ' in the wrong place. Rethink and move them.', c.reveal(D), function () { footFor(c.id, true, check); });
-      if (s.done) { done = true; Object.assign(asg, truth); } paint(); save();
+      var s = settle(c.id, ok, JSON.stringify(asg), c.good(D), '', c.reveal(D));
+      if (s.done) { done = true; bad = {}; Object.assign(asg, truth); paint(); save(); footFor(c.id, true, check); return; }
+      // wrong: show which boxes are wrong, then send those pieces back to the pool and point the hand at an empty box
+      bad = {}; wrong.forEach(function (w) { var sid = w && w.id != null ? w.id : w; if (typeof sid === 'string' && asg[sid] != null) bad[sid] = 1; }); paint(); save();
+      setTimeout(function () { if (!$('#slots')) return; Object.keys(bad).forEach(function (k) { delete asg[k]; }); bad = {}; save(); paint(); cue({ item: c.id, ring: '.slot.empty', drag: { from: '#pool .chip', to: '.slot.empty' }, delay: 300 }); }, 1100);
     }
-    if (!done) dnd(el, function (id, slot) { if (c.accept && !c.accept(id, slot)) { SFX.bad(); return; } Object.keys(asg).forEach(function (k) { if (asg[k] === id) delete asg[k]; }); asg[slot] = id; save(); paint(); });
+    if (!done) dnd(el, function (id, slot) { if (c.accept && !c.accept(id, slot)) { SFX.bad(); var se = $('[data-slot="' + slot + '"]'); if (se) { se.classList.add('bad'); setTimeout(function () { se.classList.remove('bad'); }, 600); } return; } Object.keys(asg).forEach(function (k) { if (asg[k] === id) delete asg[k]; }); delete bad[slot]; asg[slot] = id; save(); paint(); });
     K.solve = function () { Object.keys(asg).forEach(function (k) { delete asg[k]; }); Object.assign(asg, truth); paint(); check(); };
-    paint(); if (done) fbBox('<b>Done.</b> ' + c.reveal(D)); cue({ item: c.id, ring: '#pool .chip', drag: { from: '#pool .chip', to: '.slot' } });
+    paint(); if (done) fbBox('<b>Done.</b> ' + c.reveal(D)); else if (Object.keys(asg).length < slots.length) cue({ item: c.id, ring: '#pool .chip', drag: { from: '#pool .chip', to: '.slot.empty' } });
   } };
 }
 function startFor(lines) { return function (el) { el.innerHTML = talk(C.hero, lines) + '<div style="margin:18px 0 0 268px">' + coach('', 'About 15 minutes', 'You have 3 tries on every step. ' + esc(C.aiNote)) + '</div>'; setFoot({ noBack: true, main: 'Start', cls: 'go', en: true, go: function () { if (!S.x.seed) S.x.seed = 'v1'; D = null; save(); go(S.step + 1); } }); }; }
@@ -310,22 +337,28 @@ function cleanControls() {
 var cleaning = false;
 function watchControls() {
   var st = $('#stage'); if (!st || !window.MutationObserver) return;
-  new MutationObserver(function () { if (cleaning) return; cleaning = true; try { cleanControls(); } catch (e) {} cleaning = false; }).observe(st, { childList: true, subtree: true });
-  cleanControls();
+  new MutationObserver(function () { if (cleaning) return; cleaning = true; try { cleanControls(); noOrphans(); } catch (e) {} cleaning = false; }).observe(st, { childList: true, subtree: true });
+  cleanControls(); noOrphans();
+}
+// No orphan words: glue the last two words of each text block (fallback for browsers without text-wrap:pretty).
+function noOrphans() {
+  $$('#content .bub, #content .q, #content p, #content .chip, #content .pick, #content .coach, #content .slot b, #content td').forEach(function (el) {
+    var tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), n, last = null; while ((n = tw.nextNode())) if (n.nodeValue.trim()) last = n;
+    if (!last) return; var v = last.nodeValue, m = /^([\s\S]*\S) (\S{1,12}\s*)$/.exec(v); if (m) last.nodeValue = m[1] + ' ' + m[2];
+  });
 }
 
 /* ---------- boot ---------- */
 function run(cfg) {
   CFG = cfg; C = cfg.C; KEY = 'ulipsu_' + C.id.toLowerCase() + '_v1';
-  SC = [{ id: 'start', name: 'Welcome', render: cfg.start }].concat(cfg.scenes, [reviewScene(), submittedScene()]);
+  SC = (cfg.start ? [{ id: 'start', name: 'Welcome', render: cfg.start }] : []).concat(cfg.scenes, [reviewScene(), submittedScene()]);
   S = fresh();
-  $('.ttl-text').textContent = C.title; $('#ticon').textContent = C.icon || ''; document.title = C.title; $('#dis').textContent = C.disclaimer;
+  $('.ttl-text').textContent = C.title; document.title = C.title; $('#dis').textContent = C.disclaimer || '';
   $('#b-back').addEventListener('click', function () { if (T.back) T.back(); });
+  $('#b-reset').addEventListener('click', function () { if (T.reset) { SFX.tap(); T.reset(); } });
   $('#b-main').addEventListener('click', function () { if (T.main && !$('#b-main').disabled) T.main(); });
   $('#b-help').addEventListener('click', help);
   $('#b-snd').addEventListener('click', function () { S.sound = !S.sound; save(); header(); if (S.sound) SFX.tap(); });
-  var fsOK = (document.fullscreenEnabled || document.webkitFullscreenEnabled) && !/iPhone/.test(navigator.userAgent);
-  if (fsOK) { $('#b-fs').hidden = false; $('#b-fs').addEventListener('click', function () { var d = document; if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d); else { var e = d.documentElement; (e.requestFullscreen || e.webkitRequestFullscreen).call(e); } }); }
   document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-close]')) hideLayer(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideLayer(); });
   document.addEventListener('selectstart', function (e) { e.preventDefault(); });
@@ -337,14 +370,14 @@ function run(cfg) {
   LMS.init().then(function (r) {
     var saved = r.savedState; if (!saved) { try { var j = lsGet(); saved = j ? JSON.parse(j) : null; } catch (e) { saved = null; } }
     if (saved && saved.v === 1) S = Object.assign(fresh(), saved);
-    S.learnerId = r.learnerId || S.learnerId || ('anon-' + uid());
+    S.learnerId = r.learnerId || S.learnerId || ('anon-' + uid()); if (!cfg.start && !S.x.seed) S.x.seed = 'v1';
     if (r.status === 'submitted') S.submitted = true;
     if (S.submitted) S.step = SC.length - 1;
     D = null; if (S.x.seed) ensureData(); save(); render(); bridgeInit();
   });
 }
 
-var K = { pickScene: pickScene, numScene: numScene, slotScene: slotScene, startFor: startFor, shuffleOf: shuffle, say: say, fb: fbBox, footFor: footFor, settle: settle, svgPt: svgPt, money: money, cue: cue, burst: burst, xpNow: xpNow, run: run, $: $, $$: $$, esc: esc, rng: rng, shuffle: shuffle, hash: hash, talk: talk, coach: coach, keypad: keypad, padHtml: padHtml, dnd: dnd, setFoot: setFoot, go: go, next: function () { go(S.step + 1); }, save: save, render: render,
+var K = { alien: alien, nextCue: nextCue, pickScene: pickScene, numScene: numScene, slotScene: slotScene, startFor: startFor, shuffleOf: shuffle, say: say, fb: fbBox, footFor: footFor, settle: settle, svgPt: svgPt, money: money, cue: cue, burst: burst, xpNow: xpNow, run: run, $: $, $$: $$, esc: esc, rng: rng, shuffle: shuffle, hash: hash, talk: talk, coach: coach, keypad: keypad, padHtml: padHtml, dnd: dnd, setFoot: setFoot, go: go, next: function () { go(S.step + 1); }, save: save, render: render,
   S: function () { return S; }, D: ensureData, it: it, left: left, attempt: attempt, starLine: starLine, done: function (id) { return !!(S.items[id] && S.items[id].done); }, showLayer: showLayer, hideLayer: hideLayer, stagePt: stagePt, SFX: SFX, score: score, uid: uid, allDone: allDone, reset: function () { D = null; } };
 window.Kit = K;
 })();

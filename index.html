@@ -9,16 +9,15 @@
 </head>
 <body>
 <div id="vp"><div id="stage">
-<header class="hdr"><div class="ttl"><span class="ttl-icon" id="ticon" aria-hidden="true"></span><span class="ttl-text"></span></div>
-<div class="prog"><span id="plabel">Start</span><span class="bar" id="pbar"></span><span id="banner" style="display:none"></span></div>
-<div class="xp" id="xp" aria-label="Explorer level and XP"><div class="lv" id="lv">1</div><div class="xwrap"><div class="xbar"><i id="xfill"></i></div><div class="xtxt" id="xtxt">0 XP</div></div></div>
+<header class="hdr"><div class="brand"><img class="logo" src="assets/images/logo-full.png" alt="Ulipsu"></div><div class="ttl"><span class="ttl-text"></span></div>
+<div class="path" id="pbar" role="img" aria-label="Journey"></div>
+<div class="xp" id="xp" aria-label="XP, correct and incorrect answers"><span class="xpn" id="xtxt">0 XP</span><span class="ok" id="nok">&#10003; 0</span><span class="no" id="nno">&#10007; 0</span></div>
 <div class="tools">
 <button class="hbtn icon-btn sound-off" id="b-snd" aria-label="Sound"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><path class="snd-wave" d="M33 15 C37 19, 37 29, 33 33" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><path d="M12 18H8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4l10 8V10L12 18Z" fill="currentColor"/><line class="snd-off-x" x1="37" y1="13" x2="13" y2="37" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg><span class="hbtn-label">Muted</span></button>
-<button class="hbtn icon-btn" id="b-help" aria-label="Help"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="3.5"/><path d="M18 18.5a6 6 0 1 1 7.5 5.8C23.5 25.2 23 26.5 23 28" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><circle cx="23" cy="34" r="2.5" fill="currentColor"/></svg><span class="hbtn-label">Help</span></button>
-<button class="hbtn icon-btn" id="b-fs" aria-label="Fullscreen" hidden><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M8 18V8h10M30 8h10v10M40 30v10H30M18 40H8V30" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="hbtn-label">Full</span></button>
-</div><img class="logo" src="assets/images/logo.png" alt="Ulipsu logo"></header>
+<button class="hbtn icon-btn" id="b-help" aria-label="Show me what to do"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="3.5"/><path d="M18 18.5a6 6 0 1 1 7.5 5.8C23.5 25.2 23 26.5 23 28" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><circle cx="23" cy="34" r="2.5" fill="currentColor"/></svg><span class="hbtn-label">Help</span></button>
+</div></header>
 <main id="content"></main>
-<footer class="ftr"><button class="btn" id="b-back">Back</button><div class="mid"><div class="st" id="st" aria-live="polite"></div><div class="dis" id="dis"></div></div><div class="rt"><div class="tries" id="tries" aria-live="polite"></div><button class="btn pri" id="b-main">Next</button></div></footer>
+<footer class="ftr"><button class="btn" id="b-back">Back</button><div class="mid"><div class="st" id="st" aria-live="polite"></div><div class="dis" id="dis"></div></div><div class="rt"><div class="tries" id="tries" aria-live="polite"></div><button class="btn soft" id="b-reset" hidden><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M10 24a14 14 0 1 0 4.1-9.9" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path d="M12 6v9h9" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>Retry</button><button class="btn pri" id="b-main">Next</button></div></footer>
 <div id="layer" hidden></div>
 </div></div>
 <div id="rot" hidden>Rotate your device to landscape to continue. Your work is saved.</div>

@@ -1,9 +1,9 @@
 window.CONTENT = {
-  id: 'L1LC02', short: 'StoryDice', title: 'Story Dice Adventure', icon: '🎲', color: '#D84315', version: '1.0.0', allowedOrigins: [],
+  id: 'L1LC02', short: 'StoryDice', title: 'Story Dice Adventure', icon: '🎲', color: '#6C63D9', version: '1.0.0', allowedOrigins: [],
   disclaimer: '',
   aiNote: '',
-  hero: { e: '🧑‍🎤', n: 'Author Anu', r: 'Story writer' },
-  reviewLine: 'What a story! Send me your report!',
+  hero: { alien: { body: '#B9A8FF', spot: '#9C88F5', tip: '#FFB48A' }, e: '', n: 'Zibbo', r: 'Story explorer' },
+  reviewLine: '',
   items: [
     { id: 'pieces', w: 30, type: 'sort', lo: 'Turn dice rolls into a character, a setting and a problem' },
     { id: 'order', w: 30, type: 'order', lo: 'Shape the story into a beginning, a middle and an end' },
