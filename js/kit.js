@@ -68,7 +68,20 @@ function header() {
   $('#pbar').innerHTML = bar; $('#pbar').setAttribute('aria-label', 'Step ' + Math.max(1, idx + 1) + ' of ' + J.length);
   var sb = $('#b-snd'); sb.className = 'hbtn icon-btn ' + (S.sound ? 'sound-on' : 'sound-off'); $('.hbtn-label', sb).textContent = S.sound ? 'Sound' : 'Muted'; xpView(false);
 }
-function render() { K.solve = null; cueStop(); (T.off || []).forEach(function (o) { o[0].removeEventListener(o[1], o[2]); }); T.off = []; var old = $('#content'), el = old.cloneNode(false); old.parentNode.replaceChild(el, old); header(); cur().render(el, K); }
+function chatStop() { (T.chatT || []).forEach(clearTimeout); T.chatT = []; }
+function chat(el) {
+  var bs = $$('.bubbles > .bub:not([hidden]), .bubbles > .q', el), af = $$('.after', el); T.seen = T.seen || {};
+  if (!bs.length || reduced() || T.seen[cur().id]) { T.seen[cur().id] = 1; return; }
+  T.seen[cur().id] = 1; bs.forEach(function (b) { b.classList.add('wait'); }); af.forEach(function (a) { a.classList.add('wait'); });
+  var t = 300, dots = document.createElement('div'); dots.className = 'bub typing'; dots.innerHTML = '<i></i><i></i><i></i>';
+  bs.forEach(function (b, i) {
+    T.chatT.push(setTimeout(function () { b.parentNode.insertBefore(dots, b); }, t)); t += 900;
+    T.chatT.push(setTimeout(function () { gone(dots); b.classList.remove('wait'); b.classList.add('in'); SFX.tap(); }, t)); t += i < bs.length - 1 ? 900 : 300;
+  });
+  T.chatT.push(setTimeout(function () { af.forEach(function (a) { a.classList.remove('wait'); a.classList.add('in'); }); }, t));
+  if (T.cue) { clearTimeout(T.cueTimer); cueStop(true); T.chatT.push(setTimeout(function () { ringOn(); T.cueTimer = setTimeout(handShow, 700); }, t)); }
+}
+function render() { K.solve = null; cueStop(); chatStop(); (T.off || []).forEach(function (o) { o[0].removeEventListener(o[1], o[2]); }); T.off = []; var old = $('#content'), el = old.cloneNode(false); old.parentNode.replaceChild(el, old); header(); cur().render(el, K); chat(el); }
 // Help shows, it does not tell: replay the hand cue for this screen, or point at the main button.
 function help() { var sp = T.cue && (T.cue.drag || T.cue.seq) ? T.cue : { ring: '#b-main', seq: ['#b-main'] }; cueStop(); T.cue = sp; ringOn(); handShow(); }
 
@@ -225,7 +238,8 @@ function cue(spec) {
 function pt(sel) { var m = typeof sel === 'string' && /^\.pick:nth-child\((\d+)\)$/.exec(sel), e = m ? $$('.pick')[+m[1] - 1] : (typeof sel === 'string' ? $(sel) : sel); return e ? stageXY(e) : null; }
 function handShow() {
   var sp = T.cue; if (!sp || reduced() || !$('#content')) return; var pts = [], frames = [], dur;
-  var tf = function (q, s) { return 'translate(' + (q.x - 38) + 'px,' + (q.y - 8) + 'px) scale(' + s + ')'; };
+  var low = false; [sp.drag && sp.drag.from, sp.drag && sp.drag.to].concat(sp.seq || []).forEach(function (x) { var q = x && pt(x); if (q && q.y > 860) low = true; });
+  var tf = function (q, s) { return 'translate(' + (q.x - 38) + 'px,' + (q.y - (low ? 96 : 8)) + 'px) scale(' + s + ')'; };
   if (sp.drag) {
     var a = pt(sp.drag.from), b = sp.drag.to ? pt(sp.drag.to) : (a ? { x: a.x + (sp.drag.dx || 0), y: a.y + (sp.drag.dy || 0) } : null); if (!a || !b) return; dur = 2600;
     frames = [{ transform: tf(a, 1), opacity: 0, offset: 0 }, { transform: tf(a, 1), opacity: 1, offset: 0.12 }, { transform: tf(a, 0.82), opacity: 1, offset: 0.22 }, { transform: tf(b, 0.82), opacity: 1, offset: 0.7 }, { transform: tf(b, 1), opacity: 1, offset: 0.8 }, { transform: tf(b, 1), opacity: 0, offset: 1 }];
@@ -235,7 +249,7 @@ function handShow() {
     pts.forEach(function (q, i) { frames.push({ transform: tf(q, 1), opacity: 1, offset: (i * 1100 + 350) / dur }, { transform: tf(q, 0.8), opacity: 1, offset: (i * 1100 + 650) / dur }, { transform: tf(q, 1), opacity: 1, offset: (i * 1100 + 900) / dur }); });
     frames.push({ transform: frames[frames.length - 1].transform, opacity: 0, offset: 1 });
   } else return;
-  var h = document.createElement('div'); h.className = 'hand'; h.textContent = '👆'; h.setAttribute('aria-hidden', 'true'); $('#stage').appendChild(h); T.cueEl = h;
+  var h = document.createElement('div'); h.className = 'hand'; h.textContent = low ? '👇' : '👆'; h.setAttribute('aria-hidden', 'true'); $('#stage').appendChild(h); T.cueEl = h;
   T.cueAnim = h.animate(frames, { duration: dur, iterations: 2, easing: 'ease-in-out' });
   T.cueAnim.onfinish = function () { gone(T.cueEl); T.cueEl = T.cueAnim = null; T.cueTimer = setTimeout(handShow, 7000); };
 }
@@ -243,7 +257,8 @@ function handShow() {
 
 /* ---------- shared scene helpers ---------- */
 function say(txt) { return '<div class="say"><div class="av" aria-hidden="true">' + face(C.hero) + '</div><div class="bub" id="fb">' + txt + '</div></div>'; }
-function fbBox(html) { var b = $('#fb'); if (b) b.innerHTML = html; }
+function typed(b, html) { if (!b) return; b.hidden = false; if (reduced()) { b.innerHTML = html; return; } b.classList.add('typing'); b.innerHTML = '<i></i><i></i><i></i>'; T.chatT.push(setTimeout(function () { b.classList.remove('typing'); b.innerHTML = html; }, 650)); }
+function fbBox(html) { var b = $('#fb'); if (b) { b.hidden = false; b.innerHTML = html; } }
 // When the screen is ready to move on, the hand points at the main button after a pause (no written "press Next").
 function nextCue() { cue({ ring: '#b-main', seq: ['#b-main'], delay: 2500 }); }
 function footFor(id, ready, check, st, reset) {
@@ -254,9 +269,9 @@ function done1(id) { return !!(S.items[id] && S.items[id].done); }
 var OOPS = ['Hmm, not yet. Try again!', 'Almost! Have another go.', 'Oops! Look again.'];
 function settle(id, ok, resp, good, bad, reveal, foot) {
   var s = attempt(id, ok, resp), box = $('#fb');
-  if (ok) { SFX.ok(); box.innerHTML = '<b>' + (s.a === 1 ? 'Yes! ' : 'You got it! ') + '</b>' + good; }
-  else if (s.rev) { SFX.bad(); box.innerHTML = '<b>Here it is.</b> ' + reveal; }
-  else { SFX.bad(); box.innerHTML = '<b>' + OOPS[(s.a - 1) % OOPS.length] + '</b>'; }
+  if (ok) { SFX.ok(); typed(box, '<b>' + (s.a === 1 ? 'Yes! ' : 'You got it! ') + '</b>' + good); }
+  else if (s.rev) { SFX.bad(); typed(box, '<b>Here it is.</b> ' + reveal); }
+  else { SFX.bad(); typed(box, '<b>' + OOPS[(s.a - 1) % OOPS.length] + '</b>'); }
   if (foot) foot(); return s;
 }
 function svgPt(svg, ev) { var p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY; var m = svg.getScreenCTM(); return m ? p.matrixTransform(m.inverse()) : { x: 0, y: 0 }; }
@@ -377,7 +392,7 @@ function run(cfg) {
   });
 }
 
-var K = { alien: alien, nextCue: nextCue, pickScene: pickScene, numScene: numScene, slotScene: slotScene, startFor: startFor, shuffleOf: shuffle, say: say, fb: fbBox, footFor: footFor, settle: settle, svgPt: svgPt, money: money, cue: cue, burst: burst, xpNow: xpNow, run: run, $: $, $$: $$, esc: esc, rng: rng, shuffle: shuffle, hash: hash, talk: talk, coach: coach, keypad: keypad, padHtml: padHtml, dnd: dnd, setFoot: setFoot, go: go, next: function () { go(S.step + 1); }, save: save, render: render,
+var K = { alien: alien, typed: typed, nextCue: nextCue, pickScene: pickScene, numScene: numScene, slotScene: slotScene, startFor: startFor, shuffleOf: shuffle, say: say, fb: fbBox, footFor: footFor, settle: settle, svgPt: svgPt, money: money, cue: cue, burst: burst, xpNow: xpNow, run: run, $: $, $$: $$, esc: esc, rng: rng, shuffle: shuffle, hash: hash, talk: talk, coach: coach, keypad: keypad, padHtml: padHtml, dnd: dnd, setFoot: setFoot, go: go, next: function () { go(S.step + 1); }, save: save, render: render,
   S: function () { return S; }, D: ensureData, it: it, left: left, attempt: attempt, starLine: starLine, done: function (id) { return !!(S.items[id] && S.items[id].done); }, showLayer: showLayer, hideLayer: hideLayer, stagePt: stagePt, SFX: SFX, score: score, uid: uid, allDone: allDone, reset: function () { D = null; } };
 window.Kit = K;
 })();
