@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ulipsu project</title>
+<link rel="icon" type="image/png" href="assets/images/logo.png">
+<link rel="stylesheet" href="css/theme.css">
+</head>
+<body>
+<div id="vp"><div id="stage">
+<header class="hdr"><div class="ttl"><span class="ttl-icon" id="ticon" aria-hidden="true"></span><span class="ttl-text"></span></div>
+<div class="prog"><span id="plabel">Start</span><span class="bar" id="pbar"></span><span id="banner" style="display:none"></span></div>
+<div class="xp" id="xp" aria-label="Explorer level and XP"><div class="lv" id="lv">1</div><div class="xwrap"><div class="xbar"><i id="xfill"></i></div><div class="xtxt" id="xtxt">0 XP</div></div></div>
+<div class="tools">
+<button class="hbtn icon-btn sound-off" id="b-snd" aria-label="Sound"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><path class="snd-wave" d="M33 15 C37 19, 37 29, 33 33" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><path d="M12 18H8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4l10 8V10L12 18Z" fill="currentColor"/><line class="snd-off-x" x1="37" y1="13" x2="13" y2="37" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg><span class="hbtn-label">Muted</span></button>
+<button class="hbtn icon-btn" id="b-help" aria-label="Help"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="3.5"/><path d="M18 18.5a6 6 0 1 1 7.5 5.8C23.5 25.2 23 26.5 23 28" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><circle cx="23" cy="34" r="2.5" fill="currentColor"/></svg><span class="hbtn-label">Help</span></button>
+<button class="hbtn icon-btn" id="b-fs" aria-label="Fullscreen" hidden><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M8 18V8h10M30 8h10v10M40 30v10H30M18 40H8V30" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="hbtn-label">Full</span></button>
+</div><img class="logo" src="assets/images/logo.png" alt="Ulipsu logo"></header>
+<main id="content"></main>
+<footer class="ftr"><button class="btn" id="b-back">Back</button><div class="mid"><div class="st" id="st" aria-live="polite"></div><div class="dis" id="dis"></div></div><div class="rt"><div class="tries" id="tries" aria-live="polite"></div><button class="btn pri" id="b-main">Next</button></div></footer>
+<div id="layer" hidden></div>
+</div></div>
+<div id="rot" hidden>Rotate your device to landscape to continue. Your work is saved.</div>
+<noscript>This project needs JavaScript.</noscript>
+<script src="js/content-data.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/ulipsu-bridge.js"></script>
+<script src="js/lms-adapter.js"></script>
+<script src="js/kit.js"></script>
+<script src="js/project.js"></script>
+</body>
+</html>
