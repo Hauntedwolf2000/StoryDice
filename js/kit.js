@@ -238,6 +238,7 @@ function cue(spec) {
 function pt(sel) { var m = typeof sel === 'string' && /^\.pick:nth-child\((\d+)\)$/.exec(sel), e = m ? $$('.pick')[+m[1] - 1] : (typeof sel === 'string' ? $(sel) : sel); return e ? stageXY(e) : null; }
 function handShow() {
   var sp = T.cue; if (!sp || reduced() || !$('#content')) return; var pts = [], frames = [], dur;
+  if (T.cueAnim) { try { T.cueAnim.cancel(); } catch (e) {} } $$('.hand').forEach(gone); T.cueEl = T.cueAnim = null; // only one hand at a time
   var low = false; [sp.drag && sp.drag.from, sp.drag && sp.drag.to].concat(sp.seq || []).forEach(function (x) { var q = x && pt(x); if (q && q.y > 860) low = true; });
   var tf = function (q, s) { return 'translate(' + (q.x - 38) + 'px,' + (q.y - (low ? 96 : 8)) + 'px) scale(' + s + ')'; };
   if (sp.drag) {
@@ -246,7 +247,8 @@ function handShow() {
   } else if (sp.seq) {
     sp.seq.forEach(function (s) { var q = pt(s); if (q) pts.push(q); }); if (!pts.length) return; dur = 1100 * pts.length + 500;
     frames.push({ transform: tf(pts[0], 1), opacity: 0, offset: 0 });
-    pts.forEach(function (q, i) { frames.push({ transform: tf(q, 1), opacity: 1, offset: (i * 1100 + 350) / dur }, { transform: tf(q, 0.8), opacity: 1, offset: (i * 1100 + 650) / dur }, { transform: tf(q, 1), opacity: 1, offset: (i * 1100 + 900) / dur }); });
+    // each tap fades in, presses and fades out on its own spot, so a tap never looks like a drag
+    pts.forEach(function (q, i) { var b = i * 1100; frames.push({ transform: tf(q, 1), opacity: 0, offset: (b + 150) / dur }, { transform: tf(q, 1), opacity: 1, offset: (b + 350) / dur }, { transform: tf(q, 0.8), opacity: 1, offset: (b + 650) / dur }, { transform: tf(q, 1), opacity: 1, offset: (b + 900) / dur }, { transform: tf(q, 1), opacity: 0, offset: (b + 1050) / dur }); });
     frames.push({ transform: frames[frames.length - 1].transform, opacity: 0, offset: 1 });
   } else return;
   var h = document.createElement('div'); h.className = 'hand'; h.textContent = low ? '👇' : '👆'; h.setAttribute('aria-hidden', 'true'); $('#stage').appendChild(h); T.cueEl = h;

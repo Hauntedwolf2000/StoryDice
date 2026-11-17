@@ -177,7 +177,7 @@ scenes.push({ id: 'title', name: 'Book cover', items: ['title'], render: functio
     var s = K.settle('title', !wrong.length, gp.join('|'), 'It names your hero and the problem. Readers will want to know more!', '', 'The ' + truth[0] + ' and the ' + truth[1] + '.');
     if (s.done) { done = true; S.x.gaps = gp = truth.slice(); bad = {}; paint(); K.save(); return; }
     bad = {}; wrong.forEach(function (i) { bad[i] = 1; }); paint();
-    later(function () { wrong.forEach(function (i) { gp[i] = null; }); bad = {}; K.save(); paint(); K.cue({ item: 'title', ring: '.gap:not(.full)', seq: ['.wt:not(:disabled)', '.gap:not(.full)'], delay: 300 }); }, 1100);
+    later(function () { wrong.forEach(function (i) { gp[i] = null; }); bad = {}; K.save(); paint(); K.cue({ item: 'title', ring: '.wt:not(:disabled)', seq: ['.wt:not(:disabled)'], delay: 300 }); }, 1100);
   }
   el.addEventListener('click', function (e) {
     if (done) return; var g = e.target.closest('.gap'), w = e.target.closest('.wt');
@@ -185,7 +185,7 @@ scenes.push({ id: 'title', name: 'Book cover', items: ['title'], render: functio
     K.SFX.tap(); K.save(); paint();
   });
   K.solve = function () { S.x.gaps = gp = truth.slice(); paint(); check(); };
-  paint(); if (done) K.fb('<b>Done.</b> The ' + truth[0] + ' and the ' + truth[1] + '.'); else if (!gp.some(Boolean)) K.cue({ item: 'title', ring: '.wt', seq: ['.wt', '.gap'] });
+  paint(); if (done) K.fb('<b>Done.</b> The ' + truth[0] + ' and the ' + truth[1] + '.'); else if (!gp.some(Boolean)) K.cue({ item: 'title', ring: '.wt', seq: ['.wt'] });
 } });
 
 /* 7. Launch (not scored): tap a planet and the rocket flies there */
